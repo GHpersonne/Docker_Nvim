@@ -1,13 +1,15 @@
 # Nom de l'image et du container
 IMAGE ?= lazyvim-nvim
 CONTAINER ?= $(IMAGE)
+
 # Dossier de travail dans le conteneur
 WORKDIR ?= /workspace
 
-# Volumes pour persister config/data/cache (optionnels mais recommandés)
-NVIM_CONFIG ?= $(HOME)/.config/nvim
-NVIM_DATA   ?= $(HOME)/.local/share/nvim
-NVIM_CACHE  ?= $(HOME)/.cache/nvim
+# Volumes pour persister config/data/cache (désactivés par défaut pour profiter du prébuild)
+# Pour activer, décommentez les lignes ci-dessous.
+# NVIM_CONFIG ?= $(HOME)/.config/nvim
+# NVIM_DATA   ?= $(HOME)/.local/share/nvim
+# NVIM_CACHE  ?= $(HOME)/.cache/nvim
 
 # Détection OS pour le current dir (compatible Linux/macOS)
 PWD_REAL := $(shell pwd)
@@ -33,16 +35,16 @@ endif
 help:
 	@echo "Cibles:"
 	@echo "  make build     - Build l'image Docker ($(IMAGE))"
-	@echo "  make run       - Lance nvim (LazyVim) dans le conteneur, monté sur le dossier courant"
+	@echo "  make run       - Lance nvim avec la config GHpersonne/nvim (préinstallée) dans le conteneur, monté sur le dossier courant"
 	@echo "  make nvim      - Alias de run"
-	@echo "  make sh        - Ouvre un shell dans le conteneur au lieu de nvim"
+	@echo "  make sh        - Ouvre un shell dans le conteneur"
 	@echo "  make start     - Démarre un conteneur nommé ($(CONTAINER)) puis attache nvim"
 	@echo "  make stop      - Stoppe le conteneur nommé"
 	@echo "  make rm        - Supprime le conteneur nommé"
 	@echo "  make rmi       - Supprime l'image"
 	@echo "  make logs      - Affiche les logs du conteneur"
 	@echo "  make rebuild   - Rebuild no-cache"
-	@echo "  make prune     - Nettoie images/volumes danglants"
+	@echo "  make prune     - Nettoie images/volumes dangling"
 
 build:
 	docker build -t $(IMAGE) .
@@ -58,17 +60,13 @@ nvim: run
 sh: build
 	$(DOCKER_RUN) --rm --name $(CONTAINER) $(IMAGE) bash
 
-# Mode container persistant (évite réinstallation plugins à chaque run si pas de volumes)
+# Mode container persistant
 start: build
 	docker rm -f $(CONTAINER) >/dev/null 2>&1 || true
 	docker create --name $(CONTAINER) \
 		-v "$(PWD_REAL):$(WORKDIR)" \
 		-w "$(WORKDIR)" \
 		$(IMAGE) nvim >/dev/null
-	# Re-monte les volumes de config si définis
-ifdef NVIM_CONFIG
-	docker container update --restart=no $(CONTAINER) >/dev/null
-endif
 	docker start -i $(CONTAINER)
 
 stop:
@@ -85,3 +83,4 @@ logs:
 
 prune:
 	docker system prune -f
+
